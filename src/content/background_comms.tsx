@@ -158,3 +158,5 @@ port.onMessage.addListener((message: BackgroundToContentMessage, port) => {
             break;
     }
 });
+
+requestUpdateConfig();

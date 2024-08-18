@@ -85,7 +85,7 @@ function createWrapper(sourceFile: ts.SourceFile, factory: ts.NodeFactory) {
     //         $import = path => import($browser.runtime.getURL(path));
     //
     //     ... module code here, with all imports replaced with something like ...
-    //     const {... imports} = await $import('/module.js');
+    //     const {... imports} = await import('/module.js');
     // })();
 
     const useStrict = factory.createExpressionStatement(factory.createStringLiteral('use strict'));

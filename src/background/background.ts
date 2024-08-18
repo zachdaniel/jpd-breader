@@ -1,10 +1,17 @@
 import { BackgroundToContentMessage, ContentToBackgroundMessage, ResponseTypeMap } from '../message_types.js';
 import { DeckId, Grade, Token } from '../types.js';
-import { loadConfig } from './config.js';
+
+import { loadConfig, Config } from './config.js';
 import { browser, isChrome, PromiseHandle, sleep } from '../util.js';
 import * as backend from './backend.js';
 
-export let config = loadConfig();
+let config: Config;
+
+async function initConfig() {
+    config = await loadConfig();
+}
+
+initConfig();
 
 // API call queue
 
@@ -132,6 +139,7 @@ export function startParse() {
 const ports = new Set<browser.runtime.ContentScriptPort>();
 
 function post(port: browser.runtime.Port, message: BackgroundToContentMessage) {
+    console.log(message);
     port.postMessage(message);
 }
 
@@ -158,7 +166,7 @@ async function broadcastNewWordState(vid: number, sid: number) {
 
 // Chrome can't send Error objects over background ports, so we have to serialize and deserialize them...
 // (To be specific, Firefox can send any structuredClone-able object, while Chrome can only send JSON-stringify-able objects)
-const serializeError = isChrome ? (err: Error) => ({ message: err.message, stack: err.stack }) : (err: Error) => err;
+const serializeError = (err: Error) => ({ message: err.message, stack: err.stack });
 
 const messageHandlers: {
     [Req in ContentToBackgroundMessage as Req['type']]: (request: Req, port: browser.runtime.Port) => Promise<void>;
@@ -171,8 +179,6 @@ const messageHandlers: {
 
     async updateConfig(request, port) {
         const oldCSS = config.customWordCSS;
-
-        config = loadConfig();
 
         if (config.customWordCSS !== oldCSS) {
             for (const port of ports) {
@@ -189,7 +195,10 @@ const messageHandlers: {
         for (const [seq, text] of request.texts) {
             enqueueParse(seq, text)
                 .then(tokens => post(port, { type: 'success', seq: seq, result: tokens }))
-                .catch(error => post(port, { type: 'error', seq: seq, error: serializeError(error) }));
+                .catch(error => {
+                    console.log('parse error:', error);
+                    post(port, { type: 'error', seq: seq, error: serializeError(error) });
+                });
         }
         startParse();
     },
@@ -260,6 +269,7 @@ async function onPortMessage(message: ContentToBackgroundMessage, port: browser.
     try {
         await messageHandlers[message.type](message as any, port);
     } catch (error) {
+        console.log('port message:', error);
         post(port, { type: 'error', seq: (message as any).seq ?? null, error: serializeError(error) });
     }
 }

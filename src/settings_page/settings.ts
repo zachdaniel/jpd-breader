@@ -1,4 +1,5 @@
-import { Config, loadConfig, migrateSchema, saveConfig } from '../background/config.js';
+import { loadConfig, Config, migrateSchema, saveConfig } from '../background/config.js';
+
 import { requestUpdateConfig } from '../content/background_comms.js';
 import { Popup } from '../content/popup.js';
 import { showError } from '../content/toast.js';
@@ -71,7 +72,7 @@ addEventListener(
 );
 
 try {
-    const config = loadConfig();
+    const config = await loadConfig();
 
     defineCustomElements();
 

@@ -68,21 +68,6 @@ export const defaultConfig: Config = {
     easyKey: null,
 };
 
-function localStorageGet(key: string, fallback: any = null): any {
-    const data = localStorage.getItem(key);
-    if (data === null) return fallback;
-
-    try {
-        return JSON.parse(data) ?? fallback;
-    } catch {
-        return fallback;
-    }
-}
-
-function localStorageSet(key: string, value: any) {
-    localStorage.setItem(key, JSON.stringify(value));
-}
-
 export function migrateSchema(config: Config) {
     if (config.schemaVersion === 0) {
         // Keybinds changed from string to object
@@ -105,25 +90,68 @@ export function migrateSchema(config: Config) {
     }
 }
 
-export function loadConfig(): Config {
-    const config = Object.fromEntries(
-        Object.entries(defaultConfig).map(([key, defaultValue]) => [key, localStorageGet(key, defaultValue)]),
-    ) as Config;
+export async function loadConfig(): Promise<Config> {
+    let config = defaultConfig;
 
-    config.schemaVersion = localStorageGet('schemaVersion', 0);
-    migrateSchema(config);
-
-    // If the schema version is not the current version after applying all migrations, give up and refuse to load the config.
-    // Use the default as a fallback.
-    if (config.schemaVersion !== CURRENT_SCHEMA_VERSION) {
-        return defaultConfig;
+    for (const [key, _value] of Object.entries(config)) {
+        const configKey = 'jpdb-config-' + key;
+        if (Object.hasOwn(localStorage, configKey)) {
+            const value = await crossBrowserStorageGet(configKey);
+            (config as any)[key] = value;
+        }
     }
 
+    console.log(config);
+
+    config.schemaVersion = config.schemaVersion || 0;
+    migrateSchema(config);
+
+    // If the schema version is not the current version after applying all migrations, use the default config.
+    if (config.schemaVersion !== CURRENT_SCHEMA_VERSION) {
+        config = defaultConfig;
+    }
+
+    console.log(config);
     return config;
 }
 
-export function saveConfig(config: Config) {
+export function crossBrowserStorageGet<T = any>(key: string): Promise<T | undefined> {
+    if (typeof chrome !== 'undefined' && (chrome as any).storage && (chrome as any).storage.local) {
+        // Chrome
+        return new Promise<T>(resolve => {
+            ((chrome as any).storage.local as any).get(key, (result: { [key: string]: any }) => {
+                resolve(result[key] as T);
+            });
+        });
+    } else if (typeof browser !== 'undefined' && (browser as any).storage && (browser as any).storage.local) {
+        // Firefox
+        return (browser as any).storage.local.get(key).then((result: { [key: string]: T }) => result[key]);
+    } else {
+        // Safari
+        const value = localStorage.getItem(key);
+        return Promise.resolve(value ? (JSON.parse(value) as T) : undefined);
+    }
+}
+
+export async function saveConfig(config: Config): Promise<void> {
+    console.log(config);
     for (const [key, value] of Object.entries(config)) {
-        localStorageSet(key, value);
+        crossBrowserStorageSet('jpdb-config-' + key, value);
+    }
+}
+
+function crossBrowserStorageSet(key: any, value: any) {
+    if (typeof chrome !== 'undefined' && (chrome as any).storage && (chrome as any).storage.local) {
+        // Chrome
+        return new Promise(resolve => {
+            (chrome as any).storage.local.set({ [key]: value }, resolve);
+        });
+    } else if (typeof browser !== 'undefined' && (browser as any).storage && (browser as any).storage.local) {
+        // Firefox
+        return (browser as any).storage.local.set({ [key]: value });
+    } else {
+        // Safari
+        localStorage.setItem(key, JSON.stringify(value));
+        return Promise.resolve();
     }
 }

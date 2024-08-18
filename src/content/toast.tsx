@@ -50,7 +50,6 @@ export function showToast(
 }
 
 export function showError(error: Error | { message: string; stack: string | undefined }) {
-    console.error(error);
     showToast('Error', error.message, {
         timeout: 5000,
         actionIcon: '⎘',

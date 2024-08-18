@@ -69,10 +69,11 @@
     ],
     "background": {
         "page": "background/background.html",
-        "persistent": true
+        "persistent": false
     },
     "web_accessible_resources": [
         "integrations/common.js",
+        "background/config.js",
         "content/background_comms.js",
         "content/content.js",
         "content/dialog.js",

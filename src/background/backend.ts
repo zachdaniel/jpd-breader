@@ -1,6 +1,14 @@
 import { Card, CardState, DeckId, Token } from '../types.js';
 import { assertNonNull, truncate } from '../util.js';
-import { config } from './background.js';
+import { loadConfig, Config } from './config.js';
+
+let config: Config;
+
+async function initConfig() {
+    config = await loadConfig();
+}
+
+initConfig();
 
 const API_RATELIMIT = 0.2; // seconds between requests
 const SCRAPE_RATELIMIT = 1.1; // seconds between requests
